@@ -1,0 +1,158 @@
+{
+  "plans": {
+    "basic": {
+      "id": "basic",
+      "name": "Starter Security",
+      "monthlyPrice": 29.99,
+      "yearlyPrice": 299.99,
+      "scanLimit": 100,
+      "resolution": "Standard Detection",
+      "features": [
+        "100 Vulnerability Scans/month",
+        "Basic Malware Detection",
+        "Email Alerts",
+        "Weekly Scan Scheduling",
+        "Export Reports in PDF & CSV"
+      ],
+      "highlight": false,
+      "description": "Perfect for small startups and personal websites",
+      "supportLevel": "standard",
+      "processingSpeed": "normal",
+      "exportFormats": ["PDF", "CSV"]
+    },
+    "standard": {
+      "id": "standard",
+      "name": "Business Defender",
+      "monthlyPrice": 59.99,
+      "yearlyPrice": 599.99,
+      "scanLimit": 500,
+      "resolution": "Advanced Detection",
+      "features": [
+        "500 Vulnerability Scans/month",
+        "Malware + Ransomware Detection",
+        "OWASP Top 10 Checks",
+        "Priority Email & Phone Support",
+        "Schedule Daily Scans",
+        "API Access for Automation"
+      ],
+      "highlight": true,
+      "description": "Ideal for growing businesses and eCommerce platforms",
+      "supportLevel": "priority",
+      "processingSpeed": "fast",
+      "exportFormats": ["PDF", "CSV", "JSON", "HTML"]
+    },
+    "premium": {
+      "id": "premium",
+      "name": "Enterprise Shield",
+      "monthlyPrice": 99.99,
+      "yearlyPrice": 999.99,
+      "scanLimit": 1000,
+      "resolution": "Enterprise Detection",
+      "features": [
+        "1000 Vulnerability Scans/month",
+        "Zero-Day Vulnerability Detection",
+        "Real-Time Threat Intelligence",
+        "24/7 Priority Support",
+        "Comprehensive Compliance Reports",
+        "API & SIEM Integration"
+      ],
+      "highlight": false,
+      "description": "Best for enterprises and high-security infrastructures",
+      "supportLevel": "24/7_priority",
+      "processingSpeed": "ultra_fast",
+      "exportFormats": ["PDF", "CSV", "JSON", "HTML", "XML"]
+    }
+  },
+  "addOns": {
+    "extraScans": {
+      "id": "extra_scans",
+      "name": "Additional Scans",
+      "description": "+50 scans per month",
+      "monthlyPrice": 4.99,
+      "yearlyPrice": 49.99,
+      "quantity": 50,
+      "type": "scan_block"
+    },
+    "deepScan": {
+      "id": "deep_scan",
+      "name": "Deep Scan Engine",
+      "description": "Detect hidden threats with advanced heuristics",
+      "monthlyPrice": 9.99,
+      "yearlyPrice": 99.99,
+      "type": "feature"
+    },
+    "compliancePack": {
+      "id": "compliance_pack",
+      "name": "Compliance Reporting Pack",
+      "description": "Generate reports for ISO, SOC2, GDPR, HIPAA",
+      "monthlyPrice": 7.99,
+      "yearlyPrice": 79.99,
+      "type": "feature"
+    },
+    "priorityRemediation": {
+      "id": "priority_remediation",
+      "name": "Priority Remediation Guidance",
+      "description": "Get step-by-step remediation advice",
+      "monthlyPrice": 5.99,
+      "yearlyPrice": 59.99,
+      "type": "feature"
+    }
+  },
+  "billing": {
+    "cycles": {
+      "monthly": {
+        "id": "monthly",
+        "name": "Monthly",
+        "description": "Pay month-to-month",
+        "billingFrequency": 1
+      },
+      "yearly": {
+        "id": "yearly",
+        "name": "Annual",
+        "description": "Pay annually (Save 16%)",
+        "billingFrequency": 12,
+        "discount": 16
+      }
+    },
+    "paymentMethods": ["credit_card", "debit_card", "bank_transfer", "paypal"],
+    "currencies": {
+      "USD": {
+        "symbol": "$",
+        "code": "USD"
+      }
+    }
+  },
+  "features": {
+    "scanResolutions": {
+      "standard": {
+        "dpi": 300,
+        "name": "Standard Detection"
+      },
+      "high": {
+        "dpi": 600,
+        "name": "Advanced Detection"
+      },
+      "ultra": {
+        "dpi": 1200,
+        "name": "Enterprise Detection"
+      }
+    },
+    "supportLevels": {
+      "standard": {
+        "name": "Standard Support",
+        "responseTime": "24 hours",
+        "channels": ["email", "ticket"]
+      },
+      "priority": {
+        "name": "Priority Support",
+        "responseTime": "4 hours",
+        "channels": ["email", "ticket", "phone"]
+      },
+      "24/7_priority": {
+        "name": "24/7 Priority Support",
+        "responseTime": "1 hour",
+        "channels": ["email", "ticket", "phone", "chat"]
+      }
+    }
+  }
+}

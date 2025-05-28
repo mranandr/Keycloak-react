@@ -1,0 +1,5944 @@
+import React, { useState } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  FormGroup,
+  Checkbox,
+  Stack,
+  TextField
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+// Plan data
+const planData = {
+  basic: {
+    name: 'Basic',
+    monthlyPrice: 29.99,
+    yearlyPrice: 299.99,
+    features: [
+      '100 Scans per month',
+      'Standard Resolution (300 DPI)',
+      'Basic OCR Processing',
+      'Standard Support',
+      'Export to PDF & JPEG'
+    ],
+    highlight: false
+  },
+  standard: {
+    name: 'Standard',
+    monthlyPrice: 59.99,
+    yearlyPrice: 599.99,
+    features: [
+      '500 Scans per month',
+      'High Resolution (600 DPI)',
+      'Advanced OCR with 98% accuracy',
+      'Priority Support',
+      'Export to Multiple Formats',
+      'Batch Processing'
+    ],
+    highlight: true
+  },
+  premium: {
+    name: 'Premium',
+    monthlyPrice: 99.99,
+    yearlyPrice: 999.99,
+    features: [
+      'Unlimited Scans',
+      'Ultra-High Resolution (1200 DPI)',
+      'Premium OCR with 99.9% accuracy',
+      '24/7 Priority Support',
+      'All Export Formats',
+      'Advanced Batch Processing',
+      'API Integration'
+    ],
+    highlight: false
+  }
+};
+
+// Add-on options data
+const addOnOptions = {
+  extraScans: {
+    name: 'Additional Scans',
+    description: '+50 scans per month',
+    pricePerUnit: 4.99,
+    yearlyPricePerUnit: 49.99
+  },
+  enhancedResolution: {
+    name: 'Enhanced Resolution',
+    description: 'Upgrade scan quality by 2x',
+    pricePerUnit: 9.99,
+    yearlyPricePerUnit: 99.99
+  },
+  priorityProcessing: {
+    name: 'Priority Processing',
+    description: '2x faster processing speed',
+    pricePerUnit: 7.99,
+    yearlyPricePerUnit: 79.99
+  },
+  customExport: {
+    name: 'Custom Export Formats',
+    description: 'Additional export options',
+    pricePerUnit: 5.99,
+    yearlyPricePerUnit: 59.99
+  }
+};
+
+const Plans = ({ onPlanSelect, selectedPlan }: { onPlanSelect: (plan: string | null) => void, selectedPlan: string | null }) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => setIsYearly(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 3,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+const BillingInfo = () => {
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+    },
+  });
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Billing Information
+      </Typography>
+      <form onSubmit={formik.handleSubmit}>
+        <TextField
+          fullWidth
+          margin="normal"
+          id="billingName"
+          name="billingName"
+          label="Billing Name/Company Name"
+          value={formik.values.billingName}
+          onChange={formik.handleChange}
+          error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+          helperText={formik.touched.billingName && formik.errors.billingName}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="phoneNumber"
+          name="phoneNumber"
+          label="Phone Number"
+          value={formik.values.phoneNumber}
+          onChange={formik.handleChange}
+          error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+          helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="country"
+          name="country"
+          label="Country"
+          value={formik.values.country}
+          onChange={formik.handleChange}
+          error={formik.touched.country && Boolean(formik.errors.country)}
+          helperText={formik.touched.country && formik.errors.country}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="streetAddress"
+          name="streetAddress"
+          label="Street Address"
+          value={formik.values.streetAddress}
+          onChange={formik.handleChange}
+          error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+          helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="city"
+          name="city"
+          label="City"
+          value={formik.values.city}
+          onChange={formik.handleChange}
+          error={formik.touched.city && Boolean(formik.errors.city)}
+          helperText={formik.touched.city && formik.errors.city}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="zipCode"
+          name="zipCode"
+          label="Zip Code"
+          value={formik.values.zipCode}
+          onChange={formik.handleChange}
+          error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+          helperText={formik.touched.zipCode && formik.errors.zipCode}
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              id="gstinEnabled"
+              name="gstinEnabled"
+              checked={formik.values.gstinEnabled}
+              onChange={formik.handleChange}
+            />
+          }
+          label="Enable GSTIN"
+        />
+        {formik.values.gstinEnabled && (
+          <TextField
+            fullWidth
+            margin="normal"
+            id="gstin"
+            name="gstin"
+            label="GSTIN"
+            value={formik.values.gstin}
+            onChange={formik.handleChange}
+            error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+            helperText={formik.touched.gstin && formik.errors.gstin}
+          />
+        )}
+        <Button color="primary" variant="contained" fullWidth type="submit" sx={{ mt: 2 }}>
+          Submit
+        </Button>
+      </form>
+    </Box>
+  );
+};
+
+const Payment = ({ totalAmount, handleCheckout }) => (
+
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Payment Details
+    </Typography>
+    <Typography variant="body1" gutterBottom>
+      Total Amount: ${totalAmount.toFixed(2)}
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={handleCheckout}
+    >
+      Checkout
+    </Button>
+  </Box>
+);
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+      handleNext();
+    },
+  });
+
+  const handleNext = () => {
+    if (activeStep === 2 && !formik.isValid) {
+      formik.handleSubmit();
+    } else {
+      setActiveStep((prevStep) => prevStep + 1);
+      if (activeStep === 2) {
+        // Create JSON object with all information
+        const jsonData = {
+          billingInformation: formik.values,
+          scanInformation: {
+            selectedPlan,
+            isYearly,
+            extraScans,
+            totalScans: getTotalScans(),
+          },
+          amountSummary: calculateTotalAmount(),
+        };
+        console.log('All Information:', jsonData);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    // Create a checkout session on your server
+    const response = await fetch('http://localhost:5000/create-checkout-session', {
+
+      
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        billingInformation: formik.values,
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: calculateTotalAmount(),
+      }),
+    });
+    console.log(response);
+    const session = await response.json();
+
+    // Redirect to Stripe Checkout
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error(result.error.message);
+    }
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            <form>
+              <TextField
+                fullWidth
+                margin="normal"
+                id="billingName"
+                name="billingName"
+                label="Billing Name/Company Name"
+                value={formik.values.billingName}
+                onChange={formik.handleChange}
+                error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                helperText={formik.touched.billingName && formik.errors.billingName}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="phoneNumber"
+                name="phoneNumber"
+                label="Phone Number"
+                value={formik.values.phoneNumber}
+                onChange={formik.handleChange}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="country"
+                name="country"
+                label="Country"
+                value={formik.values.country}
+                onChange={formik.handleChange}
+                error={formik.touched.country && Boolean(formik.errors.country)}
+                helperText={formik.touched.country && formik.errors.country}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="streetAddress"
+                name="streetAddress"
+                label="Street Address"
+                value={formik.values.streetAddress}
+                onChange={formik.handleChange}
+                error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="city"
+                name="city"
+                label="City"
+                value={formik.values.city}
+                onChange={formik.handleChange}
+                error={formik.touched.city && Boolean(formik.errors.city)}
+                helperText={formik.touched.city && formik.errors.city}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="zipCode"
+                name="zipCode"
+                label="Zip Code"
+                value={formik.values.zipCode}
+                onChange={formik.handleChange}
+                error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                helperText={formik.touched.zipCode && formik.errors.zipCode}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="gstinEnabled"
+                    name="gstinEnabled"
+                    checked={formik.values.gstinEnabled}
+                    onChange={formik.handleChange}
+                  />
+                }
+                label="Enable GSTIN"
+              />
+              {formik.values.gstinEnabled && (
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="gstin"
+                  name="gstin"
+                  label="GSTIN"
+                  value={formik.values.gstin}
+                  onChange={formik.handleChange}
+                  error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                  helperText={formik.touched.gstin && formik.errors.gstin}
+                />
+              )}
+            </form>
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        return !formik.isValid;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={isNextDisabled()}
+                >
+                  {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+////////////?
+
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  FormGroup,
+  Checkbox,
+  Stack,
+  TextField
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+// Plan data
+const planData = {
+  basic: {
+    name: 'Basic',
+    monthlyPrice: 29.99,
+    yearlyPrice: 299.99,
+    features: [
+      '100 Scans per month',
+      'Standard Resolution (300 DPI)',
+      'Basic OCR Processing',
+      'Standard Support',
+      'Export to PDF & JPEG'
+    ],
+    highlight: false
+  },
+  standard: {
+    name: 'Standard',
+    monthlyPrice: 59.99,
+    yearlyPrice: 599.99,
+    features: [
+      '500 Scans per month',
+      'High Resolution (600 DPI)',
+      'Advanced OCR with 98% accuracy',
+      'Priority Support',
+      'Export to Multiple Formats',
+      'Batch Processing'
+    ],
+    highlight: true
+  },
+  premium: {
+    name: 'Premium',
+    monthlyPrice: 99.99,
+    yearlyPrice: 999.99,
+    features: [
+      'Unlimited Scans',
+      'Ultra-High Resolution (1200 DPI)',
+      'Premium OCR with 99.9% accuracy',
+      '24/7 Priority Support',
+      'All Export Formats',
+      'Advanced Batch Processing',
+      'API Integration'
+    ],
+    highlight: false
+  }
+};
+
+// Add-on options data
+const addOnOptions = {
+  extraScans: {
+    name: 'Additional Scans',
+    description: '+50 scans per month',
+    pricePerUnit: 4.99,
+    yearlyPricePerUnit: 49.99
+  },
+  enhancedResolution: {
+    name: 'Enhanced Resolution',
+    description: 'Upgrade scan quality by 2x',
+    pricePerUnit: 9.99,
+    yearlyPricePerUnit: 99.99
+  },
+  priorityProcessing: {
+    name: 'Priority Processing',
+    description: '2x faster processing speed',
+    pricePerUnit: 7.99,
+    yearlyPricePerUnit: 79.99
+  },
+  customExport: {
+    name: 'Custom Export Formats',
+    description: 'Additional export options',
+    pricePerUnit: 5.99,
+    yearlyPricePerUnit: 59.99
+  }
+};
+
+const Plans = ({ onPlanSelect, selectedPlan }: { onPlanSelect: (plan: string | null) => void, selectedPlan: string | null }) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => setIsYearly(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 3,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+const BillingInfo = () => {
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+    },
+  });
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Billing Information
+      </Typography>
+      <form onSubmit={formik.handleSubmit}>
+        <TextField
+          fullWidth
+          margin="normal"
+          id="billingName"
+          name="billingName"
+          label="Billing Name/Company Name"
+          value={formik.values.billingName}
+          onChange={formik.handleChange}
+          error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+          helperText={formik.touched.billingName && formik.errors.billingName}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="phoneNumber"
+          name="phoneNumber"
+          label="Phone Number"
+          value={formik.values.phoneNumber}
+          onChange={formik.handleChange}
+          error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+          helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="country"
+          name="country"
+          label="Country"
+          value={formik.values.country}
+          onChange={formik.handleChange}
+          error={formik.touched.country && Boolean(formik.errors.country)}
+          helperText={formik.touched.country && formik.errors.country}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="streetAddress"
+          name="streetAddress"
+          label="Street Address"
+          value={formik.values.streetAddress}
+          onChange={formik.handleChange}
+          error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+          helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="city"
+          name="city"
+          label="City"
+          value={formik.values.city}
+          onChange={formik.handleChange}
+          error={formik.touched.city && Boolean(formik.errors.city)}
+          helperText={formik.touched.city && formik.errors.city}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="zipCode"
+          name="zipCode"
+          label="Zip Code"
+          value={formik.values.zipCode}
+          onChange={formik.handleChange}
+          error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+          helperText={formik.touched.zipCode && formik.errors.zipCode}
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              id="gstinEnabled"
+              name="gstinEnabled"
+              checked={formik.values.gstinEnabled}
+              onChange={formik.handleChange}
+            />
+          }
+          label="Enable GSTIN"
+        />
+        {formik.values.gstinEnabled && (
+          <TextField
+            fullWidth
+            margin="normal"
+            id="gstin"
+            name="gstin"
+            label="GSTIN"
+            value={formik.values.gstin}
+            onChange={formik.handleChange}
+            error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+            helperText={formik.touched.gstin && formik.errors.gstin}
+          />
+        )}
+        <Button color="primary" variant="contained" fullWidth type="submit" sx={{ mt: 2 }}>
+          Submit
+        </Button>
+      </form>
+    </Box>
+  );
+};
+
+const Payment = ({ totalAmount, handleCheckout }) => (
+
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Payment Details
+    </Typography>
+    <Typography variant="body1" gutterBottom>
+      Total Amount: ${totalAmount.toFixed(2)}
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={handleCheckout}
+    >
+      Checkout
+    </Button>
+  </Box>
+);
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+      handleNext();
+    },
+  });
+
+  const handleNext = () => {
+    if (activeStep === 2 && !formik.isValid) {
+      formik.handleSubmit();
+    } else {
+      setActiveStep((prevStep) => prevStep + 1);
+      if (activeStep === 2) {
+        // Create JSON object with all information
+        const jsonData = {
+          billingInformation: formik.values,
+          scanInformation: {
+            selectedPlan,
+            isYearly,
+            extraScans,
+            totalScans: getTotalScans(),
+          },
+          amountSummary: calculateTotalAmount(),
+        };
+        console.log('All Information:', jsonData);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  localStorage.setItem('emailId', 'user@example.com');
+  const currentUser = localStorage.getItem('emailId');
+console.log(currentUser); // Outputs: 'user@example.com'
+
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    // Create a checkout session on your server
+    const response = await fetch('http://localhost:5000/create-checkout-session', {
+
+      
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentUser,
+        billingInformation: formik.values,
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: calculateTotalAmount(),
+      }),
+    });
+    console.log(response);
+    const session = await response.json();
+
+    // Redirect to Stripe Checkout
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error(result.error.message);
+    }
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            <form>
+              <TextField
+                fullWidth
+                margin="normal"
+                id="billingName"
+                name="billingName"
+                label="Billing Name/Company Name"
+                value={formik.values.billingName}
+                onChange={formik.handleChange}
+                error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                helperText={formik.touched.billingName && formik.errors.billingName}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="phoneNumber"
+                name="phoneNumber"
+                label="Phone Number"
+                value={formik.values.phoneNumber}
+                onChange={formik.handleChange}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="country"
+                name="country"
+                label="Country"
+                value={formik.values.country}
+                onChange={formik.handleChange}
+                error={formik.touched.country && Boolean(formik.errors.country)}
+                helperText={formik.touched.country && formik.errors.country}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="streetAddress"
+                name="streetAddress"
+                label="Street Address"
+                value={formik.values.streetAddress}
+                onChange={formik.handleChange}
+                error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="city"
+                name="city"
+                label="City"
+                value={formik.values.city}
+                onChange={formik.handleChange}
+                error={formik.touched.city && Boolean(formik.errors.city)}
+                helperText={formik.touched.city && formik.errors.city}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="zipCode"
+                name="zipCode"
+                label="Zip Code"
+                value={formik.values.zipCode}
+                onChange={formik.handleChange}
+                error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                helperText={formik.touched.zipCode && formik.errors.zipCode}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="gstinEnabled"
+                    name="gstinEnabled"
+                    checked={formik.values.gstinEnabled}
+                    onChange={formik.handleChange}
+                  />
+                }
+                label="Enable GSTIN"
+              />
+              {formik.values.gstinEnabled && (
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="gstin"
+                  name="gstin"
+                  label="GSTIN"
+                  value={formik.values.gstin}
+                  onChange={formik.handleChange}
+                  error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                  helperText={formik.touched.gstin && formik.errors.gstin}
+                />
+              )}
+            </form>
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        return !formik.isValid;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={isNextDisabled()}
+                >
+                  {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+
+{
+  id: 'cs_test_a1P86fL1jtBEr69xcmsMtzQBmn1FGtRt92tA55L7YokMkTxhiNo0UFlk7N',
+  object: 'checkout.session',
+  adaptive_pricing: { enabled: true },
+  after_expiration: null,
+  allow_promotion_codes: null,
+  amount_subtotal: 3498,
+  amount_total: 3498,
+  automatic_tax: { enabled: false, liability: null, provider: null, status: null },
+  billing_address_collection: null,
+  cancel_url: 'http://localhost:3000/cancel',
+  client_reference_id: null,
+  client_secret: null,
+  collected_information: null,
+  consent: null,
+  consent_collection: null,
+  created: 1747217887,
+  currency: 'usd',
+  currency_conversion: null,
+  custom_fields: [],
+  custom_text: {
+    after_submit: null,
+    shipping_address: null,
+    submit: null,
+    terms_of_service_acceptance: null
+  },
+  customer: null,
+  customer_creation: 'if_required',
+  customer_details: {
+    address: {
+      city: null,
+      country: 'IN',
+      line1: null,
+      line2: null,
+      postal_code: null,
+      state: null
+    },
+    email: 'aravindhan.d@cbl.world',
+    name: 'aravindhan',
+    phone: null,
+    tax_exempt: 'none',
+    tax_ids: []
+  },
+  customer_email: null,
+  discounts: [],
+  expires_at: 1747304287,
+  invoice: null,
+  invoice_creation: {
+    enabled: false,
+    invoice_data: {
+      account_tax_ids: null,
+      custom_fields: null,
+      description: null,
+      footer: null,
+      issuer: null,
+      metadata: {},
+      rendering_options: null
+    }
+  },
+  livemode: false,
+  locale: null,
+  metadata: {
+    customerEmail: 'user@example.com',
+    extraScans: '1',
+    isYearly: 'false',
+    plan: 'basic'
+  },
+  mode: 'payment',
+  payment_intent: 'pi_3ROcOGFL6Lx5OedX1hMAbLI5',
+  payment_link: null,
+  payment_method_collection: 'if_required',
+  payment_method_configuration_details: null,
+  payment_method_options: { card: { request_three_d_secure: 'automatic' } },
+  payment_method_types: [ 'card' ],
+  payment_status: 'paid',
+  permissions: null,
+  phone_number_collection: { enabled: false },
+  presentment_details: { presentment_amount: 308001, presentment_currency: 'inr' },
+  recovered_from: null,
+  saved_payment_method_options: null,
+  setup_intent: null,
+  shipping_address_collection: null,
+  shipping_cost: null,
+  shipping_options: [],
+  status: 'complete',
+  submit_type: null,
+  subscription: null,
+  success_url: 'http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}',
+  total_details: { amount_discount: 0, amount_shipping: 0, amount_tax: 0 },
+  ui_mode: 'hosted',
+  url: null,
+  wallet_options: null
+} sessionid
+
+
+
+
+
+{
+  currentUser: 'user@example.com',
+  billingInformation: {
+    billingName: 'aravindhan',
+    phoneNumber: '09047368493',
+    country: 'India',
+    streetAddress: 'NO:9 SANATHI STREET MAMANDUR',
+    city: 'CHENGALPATTU',
+    zipCode: '603111',
+    gstinEnabled: false,
+    gstin: ''
+  },
+  plan: 'basic',
+  isYearly: false,
+  extraScans: 1,
+  totalScans: 150,
+  totalAmount: 34.98
+}
+
+
+////////
+
+16-05-25
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  FormGroup,
+  Checkbox,
+  Stack,
+  TextField
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+// Plan data
+const planData = {
+  basic: {
+    name: 'Basic',
+    monthlyPrice: 29.99,
+    yearlyPrice: 299.99,
+    features: [
+      '100 Scans per month',
+      'Standard Resolution (300 DPI)',
+      'Basic OCR Processing',
+      'Standard Support',
+      'Export to PDF & JPEG'
+    ],
+    highlight: false
+  },
+  standard: {
+    name: 'Standard',
+    monthlyPrice: 59.99,
+    yearlyPrice: 599.99,
+    features: [
+      '500 Scans per month',
+      'High Resolution (600 DPI)',
+      'Advanced OCR with 98% accuracy',
+      'Priority Support',
+      'Export to Multiple Formats',
+      'Batch Processing'
+    ],
+    highlight: true
+  },
+  premium: {
+    name: 'Premium',
+    monthlyPrice: 99.99,
+    yearlyPrice: 999.99,
+    features: [
+      'Unlimited Scans',
+      'Ultra-High Resolution (1200 DPI)',
+      'Premium OCR with 99.9% accuracy',
+      '24/7 Priority Support',
+      'All Export Formats',
+      'Advanced Batch Processing',
+      'API Integration'
+    ],
+    highlight: false
+  }
+};
+
+// Add-on options data
+const addOnOptions = {
+  extraScans: {
+    name: 'Additional Scans',
+    description: '+50 scans per month',
+    pricePerUnit: 4.99,
+    yearlyPricePerUnit: 49.99
+  },
+  enhancedResolution: {
+    name: 'Enhanced Resolution',
+    description: 'Upgrade scan quality by 2x',
+    pricePerUnit: 9.99,
+    yearlyPricePerUnit: 99.99
+  },
+  priorityProcessing: {
+    name: 'Priority Processing',
+    description: '2x faster processing speed',
+    pricePerUnit: 7.99,
+    yearlyPricePerUnit: 79.99
+  },
+  customExport: {
+    name: 'Custom Export Formats',
+    description: 'Additional export options',
+    pricePerUnit: 5.99,
+    yearlyPricePerUnit: 59.99
+  }
+};
+
+interface PlansProps {
+  onPlanSelect: (plan: string | null) => void;
+  selectedPlan: string | null;
+  onIsYearlyChange: (yearly: boolean) => void;
+}
+
+const Plans = ({ onPlanSelect, selectedPlan, onIsYearlyChange }: PlansProps) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  const handleYearlyToggle = (checked: boolean) => {
+    setIsYearly(checked);
+    onIsYearlyChange(checked);
+  };
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => handleYearlyToggle(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 4,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+const BillingInfo = () => {
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+    },
+  });
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Billing Information
+      </Typography>
+      <form onSubmit={formik.handleSubmit}>
+        <TextField
+          fullWidth
+          margin="normal"
+          id="billingName"
+          name="billingName"
+          label="Billing Name/Company Name"
+          value={formik.values.billingName}
+          onChange={formik.handleChange}
+          error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+          helperText={formik.touched.billingName && formik.errors.billingName}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="phoneNumber"
+          name="phoneNumber"
+          label="Phone Number"
+          value={formik.values.phoneNumber}
+          onChange={formik.handleChange}
+          error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+          helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="country"
+          name="country"
+          label="Country"
+          value={formik.values.country}
+          onChange={formik.handleChange}
+          error={formik.touched.country && Boolean(formik.errors.country)}
+          helperText={formik.touched.country && formik.errors.country}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="streetAddress"
+          name="streetAddress"
+          label="Street Address"
+          value={formik.values.streetAddress}
+          onChange={formik.handleChange}
+          error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+          helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="city"
+          name="city"
+          label="City"
+          value={formik.values.city}
+          onChange={formik.handleChange}
+          error={formik.touched.city && Boolean(formik.errors.city)}
+          helperText={formik.touched.city && formik.errors.city}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          id="zipCode"
+          name="zipCode"
+          label="Zip Code"
+          value={formik.values.zipCode}
+          onChange={formik.handleChange}
+          error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+          helperText={formik.touched.zipCode && formik.errors.zipCode}
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              id="gstinEnabled"
+              name="gstinEnabled"
+              checked={formik.values.gstinEnabled}
+              onChange={formik.handleChange}
+            />
+          }
+          label="Enable GSTIN"
+        />
+        {formik.values.gstinEnabled && (
+          <TextField
+            fullWidth
+            margin="normal"
+            id="gstin"
+            name="gstin"
+            label="GSTIN"
+            value={formik.values.gstin}
+            onChange={formik.handleChange}
+            error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+            helperText={formik.touched.gstin && formik.errors.gstin}
+          />
+        )}
+        <Button color="primary" variant="contained" fullWidth type="submit" sx={{ mt: 2 }}>
+          Submit
+        </Button>
+      </form>
+    </Box>
+  );
+};
+
+const Payment = ({ totalAmount, handleCheckout }) => (
+
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Payment Details
+    </Typography>
+    <Typography variant="body1" gutterBottom>
+      Total Amount: ${totalAmount.toFixed(2)}
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={handleCheckout}
+    >
+      Checkout
+    </Button>
+  </Box>
+);
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+      handleNext();
+    },
+  });
+
+  const handleNext = () => {
+    if (activeStep === 2 && !formik.isValid) {
+      formik.handleSubmit();
+    } else {
+      setActiveStep((prevStep) => prevStep + 1);
+      if (activeStep === 2) {
+        // Create JSON object with all information
+        const jsonData = {
+          billingInformation: formik.values,
+          scanInformation: {
+            selectedPlan,
+            isYearly,
+            extraScans,
+            totalScans: getTotalScans(),
+          },
+          amountSummary: calculateTotalAmount(),
+        };
+        console.log('All Information:', jsonData);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  localStorage.setItem('emailId', 'user@example.com');
+  const currentUser = localStorage.getItem('emailId');
+console.log(currentUser); // Outputs: 'user@example.com'
+
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    // Create a checkout session on your server
+    const response = await fetch('http://localhost:3000/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentUser,
+        billingInformation: formik.values,
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: calculateTotalAmount(),
+      }),
+    });
+    console.log(response,"reponse");
+    const session = await response.json();
+
+    // Redirect to Stripe Checkout
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error(result.error.message);
+    }
+  };
+
+  const handleIsYearlyChange = (yearly: boolean) => {
+    setIsYearly(yearly);
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+            onIsYearlyChange={handleIsYearlyChange}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            <form>
+              <TextField
+                fullWidth
+                margin="normal"
+                id="billingName"
+                name="billingName"
+                label="Billing Name/Company Name"
+                value={formik.values.billingName}
+                onChange={formik.handleChange}
+                error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                helperText={formik.touched.billingName && formik.errors.billingName}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="phoneNumber"
+                name="phoneNumber"
+                label="Phone Number"
+                value={formik.values.phoneNumber}
+                onChange={formik.handleChange}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="country"
+                name="country"
+                label="Country"
+                value={formik.values.country}
+                onChange={formik.handleChange}
+                error={formik.touched.country && Boolean(formik.errors.country)}
+                helperText={formik.touched.country && formik.errors.country}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="streetAddress"
+                name="streetAddress"
+                label="Street Address"
+                value={formik.values.streetAddress}
+                onChange={formik.handleChange}
+                error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="city"
+                name="city"
+                label="City"
+                value={formik.values.city}
+                onChange={formik.handleChange}
+                error={formik.touched.city && Boolean(formik.errors.city)}
+                helperText={formik.touched.city && formik.errors.city}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="zipCode"
+                name="zipCode"
+                label="Zip Code"
+                value={formik.values.zipCode}
+                onChange={formik.handleChange}
+                error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                helperText={formik.touched.zipCode && formik.errors.zipCode}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="gstinEnabled"
+                    name="gstinEnabled"
+                    checked={formik.values.gstinEnabled}
+                    onChange={formik.handleChange}
+                  />
+                }
+                label="Enable GSTIN"
+              />
+              {formik.values.gstinEnabled && (
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="gstin"
+                  name="gstin"
+                  label="GSTIN"
+                  value={formik.values.gstin}
+                  onChange={formik.handleChange}
+                  error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                  helperText={formik.touched.gstin && formik.errors.gstin}
+                />
+              )}
+            </form>
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        return !formik.isValid;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={isNextDisabled()}
+                >
+                  {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+
+
+///backend
+
+const express = require("express");
+const Stripe = require("stripe");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const CheckoutSession = require('./models/CheckoutSession');
+const BillingInfo = require("./models/BillingInfo");
+const PlanDetails = require("./models/PlanDetails");
+
+
+require("dotenv").config();
+
+const app = express();
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+app.use(express.json()); // Needed to parse JSON bodies
+
+app.use(cors());
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("✅ Connected to MongoDB");
+});
+
+mongoose.connection.on("error", (err) => {
+  console.error("❌ MongoDB connection error:", err);
+});
+
+
+app.use(express.json());
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    const {
+      currentUser,
+      billingInformation,
+      plan,
+      isYearly,
+      extraScans,
+      totalScans,
+      totalAmount,
+    } = req.body;
+     console.log(req.body);
+    const amountInCents = Math.round(parseFloat(totalAmount) * 100);
+
+    // Create Stripe session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${plan || 'Unknown'} Plan`,
+          },
+          unit_amount: amountInCents,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: 'http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}',
+
+      cancel_url: 'http://localhost:3000/cancel',
+      metadata: {
+        plan,
+        isYearly: String(isYearly),
+        extraScans: String(extraScans),
+        customerEmail: currentUser,
+      },
+    });
+
+
+    const sessionId = session.id;
+console.log(session,"sessionId");
+    // Save billing info
+    await BillingInfo.create({
+      sessionId,
+      currentUser,
+      ...billingInformation,
+    });
+
+    // Handle plan logic
+    const existingPlan = await PlanDetails.findOne({ currentUser });
+
+    if (existingPlan) {
+      // Update existing
+      existingPlan.totalScans += totalScans;
+      existingPlan.plan = plan;
+      existingPlan.isYearly = isYearly;
+      existingPlan.extraScans = extraScans;
+      existingPlan.totalAmount = totalAmount;
+      existingPlan.sessionId = sessionId;
+      await existingPlan.save();
+      console.log('✅ Updated PlanDetails for:', currentUser);
+    } else {
+      // Create new
+      await PlanDetails.create({
+        sessionId,
+        currentUser,
+        plan,
+        isYearly,
+        extraScans,
+        totalScans,
+        totalAmount,
+      });
+      console.log('✅ Created PlanDetails for:', currentUser);
+    }
+
+    res.json({ id: sessionId });
+
+  } catch (error) {
+    console.error('❌ Error:', error.message || error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+//vkek ptpw siey wsys
+
+app.get('/success', async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.query.session_id, {
+      expand: ['subscription', 'subscription.plan.product'],
+    });
+    
+    console.log(session, "sessionid");
+
+    // Op success_url: 'http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}',tionally pass session info as query params or store in DB
+    res.redirect(`http://localhost:5173/subscription-success?session_id=${session.id}`);
+  } catch (error) {
+    console.error("Stripe session fetch error:", error);
+    res.status(500).send('An error occurred during checkout.');
+  }
+});
+
+app.get('/cancel', (req, res) => {
+  res.redirect('/')
+})
+
+app.get('/customers/:customerId', async (req, res) => {
+  const portalSession = await stripe.billingPortal.sessions.create({
+      customer: req.params.customerId,
+      return_url: `${process.env.BASE_URL}/`
+  })
+
+  res.redirect(portalSession.url)
+})
+
+
+
+
+// app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+//   const sig = req.headers['stripe-signature'];
+
+//   let event;
+
+//   try {
+//       event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET_KEY);
+//   } catch (err) {
+//       return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
+
+//   // Handle the event
+//   switch (event.type) {
+//     //Event when the subscription started
+//     case 'checkout.session.completed':
+//       console.log('New Subscription started!')
+//       console.log(event.data)
+//       break;
+
+//     // Event when the payment is successfull (every subscription interval)  
+//     case 'invoice.paid':
+//       console.log('Invoice paid')
+//       console.log(event.data)
+//       break;
+
+//     // Event when the payment failed due to card problems or insufficient funds (every subscription interval)  
+//     case 'invoice.payment_failed':  
+//       console.log('Invoice payment failed!')
+//       console.log(event.data)
+//       break;
+
+//     // Event when subscription is updated  
+//     case 'customer.subscription.updated':
+//       console.log('Subscription updated!')
+//       console.log(event.data)
+//       break
+
+//     default:
+//       console.log(`Unhandled event type ${event.type}`);
+//   }
+
+//   res.send();
+// });
+
+
+
+const PORT = 3000;
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+/////
+
+20-05-2025
+
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  FormGroup,
+  Checkbox,
+  Stack,
+  TextField
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+
+interface PlansProps {
+  onPlanSelect: (plan: string | null) => void;
+  selectedPlan: string | null;
+  onIsYearlyChange: (yearly: boolean) => void;
+}
+
+const Plans = ({ onPlanSelect, selectedPlan, onIsYearlyChange }: PlansProps) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  const handleYearlyToggle = (checked: boolean) => {
+    setIsYearly(checked);
+    onIsYearlyChange(checked);
+  };
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => handleYearlyToggle(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 4,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+
+const Payment = ({ totalAmount, handleCheckout }) => (
+
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Payment Details
+    </Typography>
+    <Typography variant="body1" gutterBottom>
+      Total Amount: ${totalAmount.toFixed(2)}
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={handleCheckout}
+    >
+      Checkout
+    </Button>
+  </Box>
+);
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+      handleNext();
+    },
+  });
+
+  const handleNext = () => {
+    if (activeStep === 2 && !formik.isValid) {
+      formik.handleSubmit();
+    } else {
+      setActiveStep((prevStep) => prevStep + 1);
+      if (activeStep === 2) {
+        // Create JSON object with all information
+        const jsonData = {
+          billingInformation: formik.values,
+          scanInformation: {
+            selectedPlan,
+            isYearly,
+            extraScans,
+            totalScans: getTotalScans(),
+          },
+          amountSummary: calculateTotalAmount(),
+        };
+        console.log('All Information:', jsonData);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  localStorage.setItem('emailId', 'aravind@example.com');
+  const currentUser = localStorage.getItem('emailId');
+console.log(currentUser); // Outputs: 'user@example.com'
+
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    // Create a checkout session on your server
+    const response = await fetch('http://localhost:3000/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentUser,
+        billingInformation: formik.values,
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: calculateTotalAmount(),
+      }),
+    });
+    console.log(response,"reponse");
+    const session = await response.json();
+
+    // Redirect to Stripe Checkout
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error(result.error.message);
+    }
+  };
+
+  const handleIsYearlyChange = (yearly: boolean) => {
+    setIsYearly(yearly);
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+            onIsYearlyChange={handleIsYearlyChange}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            <form>
+              <TextField
+                fullWidth
+                margin="normal"
+                id="billingName"
+                name="billingName"
+                label="Billing Name/Company Name"
+                value={formik.values.billingName}
+                onChange={formik.handleChange}
+                error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                helperText={formik.touched.billingName && formik.errors.billingName}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="phoneNumber"
+                name="phoneNumber"
+                label="Phone Number"
+                value={formik.values.phoneNumber}
+                onChange={formik.handleChange}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="country"
+                name="country"
+                label="Country"
+                value={formik.values.country}
+                onChange={formik.handleChange}
+                error={formik.touched.country && Boolean(formik.errors.country)}
+                helperText={formik.touched.country && formik.errors.country}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="streetAddress"
+                name="streetAddress"
+                label="Street Address"
+                value={formik.values.streetAddress}
+                onChange={formik.handleChange}
+                error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="city"
+                name="city"
+                label="City"
+                value={formik.values.city}
+                onChange={formik.handleChange}
+                error={formik.touched.city && Boolean(formik.errors.city)}
+                helperText={formik.touched.city && formik.errors.city}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="zipCode"
+                name="zipCode"
+                label="Zip Code"
+                value={formik.values.zipCode}
+                onChange={formik.handleChange}
+                error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                helperText={formik.touched.zipCode && formik.errors.zipCode}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="gstinEnabled"
+                    name="gstinEnabled"
+                    checked={formik.values.gstinEnabled}
+                    onChange={formik.handleChange}
+                  />
+                }
+                label="Enable GSTIN"
+              />
+              {formik.values.gstinEnabled && (
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="gstin"
+                  name="gstin"
+                  label="GSTIN"
+                  value={formik.values.gstin}
+                  onChange={formik.handleChange}
+                  error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                  helperText={formik.touched.gstin && formik.errors.gstin}
+                />
+              )}
+            </form>
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        return !formik.isValid;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={isNextDisabled()}
+                >
+                  {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+
+
+
+
+
+21/05/2025
+
+
+
+
+///
+21/05/25
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  FormGroup,
+  Checkbox,
+  Stack,
+  TextField,
+  CircularProgress
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import SpeedIcon from '@mui/icons-material/Speed';
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+import { v4 as uuidv4 } from 'uuid';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+
+interface PlansProps {
+  onPlanSelect: (plan: string | null) => void;
+  selectedPlan: string | null;
+  onIsYearlyChange: (yearly: boolean) => void;
+}
+
+const Plans = ({ onPlanSelect, selectedPlan, onIsYearlyChange }: PlansProps) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  const handleYearlyToggle = (checked: boolean) => {
+    setIsYearly(checked);
+    onIsYearlyChange(checked);
+  };
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => handleYearlyToggle(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 4,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+interface PaymentProps {
+  totalAmount: number;
+  handleCheckout: () => Promise<void>;
+}
+
+const Payment: React.FC<PaymentProps> = ({ totalAmount, handleCheckout }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await handleCheckout();
+    } catch (error) {
+      console.error('Payment error:', error);
+      setError(
+        error instanceof Error 
+          ? `Payment failed: ${error.message}`
+          : 'An unexpected error occurred during payment'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Payment Details
+      </Typography>
+      <Typography variant="body1" gutterBottom>
+        Total Amount: ${totalAmount.toFixed(2)}
+      </Typography>
+      {error && (
+        <Box sx={{ 
+          mb: 2, 
+          p: 2, 
+          bgcolor: 'error.light', 
+          borderRadius: 1,
+          color: 'error.contrastText'
+        }}>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+            {error}
+          </Typography>
+        </Box>
+      )}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleClick}
+        disabled={isLoading}
+        fullWidth
+        sx={{ mt: 2 }}
+      >
+        {isLoading ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={20} color="inherit" />
+            <Typography>Processing...</Typography>
+          </Box>
+        ) : (
+          'Proceed to Checkout'
+        )}
+      </Button>
+    </Box>
+  );
+};
+
+// Add this interface at the top
+interface BillingInformation {
+  billingName: string;
+  phoneNumber: string;
+  country: string;
+  streetAddress: string;
+  city: string;
+  zipCode: string;
+  gstinEnabled: boolean;
+  gstin: string;
+  cbl_payment_id?: string;
+  sessionId?: string;
+}
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const [hasExistingBillingInfo, setHasExistingBillingInfo] = useState(false);
+  const [isLoadingBillingInfo, setIsLoadingBillingInfo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: (schema) => schema.required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: async (values) => {
+      await handleNext();
+    },
+    enableReinitialize: true,
+  });
+
+  const handleNext = async () => {
+    if (isSubmitting) return;
+    
+    try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      if (activeStep === 2) {
+        // Validate form if no existing billing info
+        if (!hasExistingBillingInfo) {
+          const errors = await formik.validateForm();
+          if (Object.keys(errors).length > 0) {
+            formik.setErrors(errors);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
+        // Generate unique IDs
+        const cbl_payment_id = `CBL-${uuidv4()}`;
+        const sessionId = `SESS-${uuidv4()}`;
+        
+        const subscriptionData = {
+          currentUser,
+          billingInformation: formik.values,
+          plan: selectedPlan,
+          isYearly,
+          extraScans,
+          totalScans: getTotalScans(),
+          totalAmount: calculateTotalAmount(),
+          cbl_payment_id,
+          sessionId,
+        };
+
+        // Save billing info
+        const response = await fetch('http://localhost:3000/billing-info', {
+          method: hasExistingBillingInfo ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(subscriptionData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to save billing information');
+        }
+
+        const savedData = await response.json();
+        console.log('Successfully saved data:', savedData);
+      }
+      
+      setActiveStep((prevStep) => prevStep + 1);
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  localStorage.setItem('emailId', 'aravind@example.com');
+  const currentUser = localStorage.getItem('emailId');
+    console.log(currentUser); // Outputs: 'user@example.com'
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBillingInfo = async () => {
+      if (activeStep === 2 && currentUser) {
+        try {
+          setIsLoadingBillingInfo(true);
+          setError(null);
+          
+          const existingInfo = await fetchExistingBillingInfo(currentUser);
+          
+          if (isMounted) {
+            if (existingInfo) {
+              formik.setValues(existingInfo);
+              setHasExistingBillingInfo(true);
+            } else {
+              setHasExistingBillingInfo(false);
+              formik.resetForm();
+            }
+          }
+        } catch (error) {
+          if (isMounted) {
+            setError('Failed to load billing information');
+            setHasExistingBillingInfo(false);
+            formik.resetForm();
+          }
+        } finally {
+          if (isMounted) {
+            setIsLoadingBillingInfo(false);
+          }
+        }
+      }
+    };
+
+    loadBillingInfo();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeStep, currentUser]);
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    try {
+      // Generate unique IDs
+      const cbl_payment_id = `CBL-${uuidv4()}`;
+      const sessionId = `SESS-${uuidv4()}`;
+
+      // Calculate the price in cents (Stripe requires amounts in smallest currency unit)
+      const amountInCents = Math.round(calculateTotalAmount() * 100);
+
+      const checkoutData = {
+        currentUser,
+        billingInformation: {
+          ...formik.values,
+          cbl_payment_id,
+          sessionId
+        },
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: amountInCents, // Send amount in cents
+        cbl_payment_id,
+        sessionId,
+        email: currentUser,
+        success_url: `${window.location.origin}/success`,
+        cancel_url: `${window.location.origin}/cancel`,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        // Add line items for Stripe
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${selectedPlan} Plan${isYearly ? ' (Yearly)' : ' (Monthly)'}`,
+              description: `Subscription for ${selectedPlan} plan with ${getTotalScans()} scans`
+            },
+            unit_amount: amountInCents,
+            recurring: {
+              interval: isYearly ? 'year' : 'month'
+            }
+          },
+          quantity: 1
+        }]
+      };
+
+      // Debug log the request data
+      console.log('Sending checkout data:', JSON.stringify(checkoutData, null, 2));
+
+      const response = await fetch('http://localhost:3000/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(checkoutData),
+      });
+
+      // Debug log the response
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Try to get the response body regardless of status
+      let responseBody;
+      try {
+        const text = await response.text(); // First get the raw text
+        console.log('Raw response:', text);
+        
+        if (text) {
+          try {
+            responseBody = JSON.parse(text);
+            console.log('Parsed response body:', responseBody);
+          } catch (parseError) {
+            console.error('Error parsing JSON response:', parseError);
+            throw new Error(`Invalid JSON response from server: ${text}`);
+          }
+        }
+      } catch (e) {
+        if (e instanceof Error) {
+          console.error('Error parsing response:', e);
+          throw new Error(`Failed to parse server response: ${e.message}`);
+        }
+        throw new Error('Unknown error occurred while processing server response');
+      }
+
+      if (!response.ok) {
+        const errorMessage = responseBody?.message || 
+                            responseBody?.error || 
+                            `Server error: ${response.status} ${response.statusText}`;
+        console.error('Server error response:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      if (!responseBody || !responseBody.id) {
+        console.error('Invalid response body:', responseBody);
+        throw new Error('Invalid response: No session ID received from server');
+      }
+
+      // Redirect to Stripe Checkout
+      const result = await stripe.redirectToCheckout({
+        sessionId: responseBody.id,
+      });
+
+      if (result.error) {
+        console.error('Stripe redirect error:', result.error);
+        throw new Error(result.error.message);
+      }
+    } catch (error) {
+      console.error('Checkout error details:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      throw error; // Re-throw to be caught by the Payment component
+    }
+  };
+
+  const handleIsYearlyChange = (yearly: boolean) => {
+    setIsYearly(yearly);
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+            onIsYearlyChange={handleIsYearlyChange}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            {isLoadingBillingInfo ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <form onSubmit={formik.handleSubmit}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {hasExistingBillingInfo ? 
+                      "Existing billing information found" : 
+                      "No existing billing information found. Please fill in the details below."}
+                  </Typography>
+                </Box>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="billingName"
+                  name="billingName"
+                  label="Billing Name/Company Name"
+                  value={formik.values.billingName}
+                  onChange={formik.handleChange}
+                  error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                  helperText={formik.touched.billingName && formik.errors.billingName}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  label="Phone Number"
+                  value={formik.values.phoneNumber}
+                  onChange={formik.handleChange}
+                  error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                  helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="country"
+                  name="country"
+                  label="Country"
+                  value={formik.values.country}
+                  onChange={formik.handleChange}
+                  error={formik.touched.country && Boolean(formik.errors.country)}
+                  helperText={formik.touched.country && formik.errors.country}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="streetAddress"
+                  name="streetAddress"
+                  label="Street Address"
+                  value={formik.values.streetAddress}
+                  onChange={formik.handleChange}
+                  error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                  helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="city"
+                  name="city"
+                  label="City"
+                  value={formik.values.city}
+                  onChange={formik.handleChange}
+                  error={formik.touched.city && Boolean(formik.errors.city)}
+                  helperText={formik.touched.city && formik.errors.city}
+                />
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="zipCode"
+                  name="zipCode"
+                  label="Zip Code"
+                  value={formik.values.zipCode}
+                  onChange={formik.handleChange}
+                  error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                  helperText={formik.touched.zipCode && formik.errors.zipCode}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      id="gstinEnabled"
+                      name="gstinEnabled"
+                      checked={formik.values.gstinEnabled}
+                      onChange={formik.handleChange}
+                    />
+                  }
+                  label="Enable GSTIN"
+                />
+                {formik.values.gstinEnabled && (
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    id="gstin"
+                    name="gstin"
+                    label="GSTIN"
+                    value={formik.values.gstin}
+                    onChange={formik.handleChange}
+                    error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                    helperText={formik.touched.gstin && formik.errors.gstin}
+                  />
+                )}
+                <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                  {hasExistingBillingInfo && (
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={() => {
+                        formik.resetForm();
+                        setHasExistingBillingInfo(false);
+                      }}
+                    >
+                      Use New Billing Info
+                    </Button>
+                  )}
+                </Box>
+                <ErrorDisplay error={error} />
+              </form>
+            )}
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        if (hasExistingBillingInfo) {
+          return false;
+        }
+        return !formik.isValid || !formik.dirty;
+      default:
+        return false;
+    }
+  };
+
+  const fetchExistingBillingInfo = async (email: string): Promise<BillingInformation | null> => {
+    try {
+      const response = await fetch(`http://localhost:3000/billing-info/${email}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error('Failed to fetch billing information');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching billing info:', error);
+      return null;
+    }
+  };
+
+  const ErrorDisplay = ({ error }: { error: string | null }) => {
+    if (!error) return null;
+    
+    return (
+      <Box sx={{ mt: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
+        <Typography color="error.contrastText">
+          {error}
+        </Typography>
+      </Box>
+    );
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={activeStep === 2 ? formik.handleSubmit : handleNext}
+                  disabled={isNextDisabled() || isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    activeStep === steps.length - 1 ? 'Finish' : 'Next'
+                  )}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+
+22/05/25
+
+
+import React, { useState } from 'react';
+import {
+  Box,
+  Stepper,
+  Step,
+  StepLabel,
+  Button,
+  Typography,
+  Paper,
+  Container,
+  Grid,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  CardActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+ 
+  Checkbox,
+  Stack,
+  TextField
+} from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import StarIcon from '@mui/icons-material/Star';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+
+import {
+  getPlans,
+  getAddOns,
+  calculatePrice,
+  getScanLimit,
+  getPlanFeatures,
+  getExtraScanQuantity
+} from '../utils/subscriptionUtils';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe('pk_test_51RKGUkFL6Lx5OedXQNYsMgHTAhv1OHIOtFZS47LyF4WBQO1u4srGGwta1OYQJ8TYAHeDGaxgAyWpFiXyjJbzkyLK008wvwS0Wj');
+
+
+interface PlansProps {
+  onPlanSelect: (plan: string | null) => void;
+  selectedPlan: string | null;
+  onIsYearlyChange: (yearly: boolean) => void;
+}
+
+const Plans = ({ onPlanSelect, selectedPlan, onIsYearlyChange }: PlansProps) => {
+  const [isYearly, setIsYearly] = useState(false);
+  const plans = getPlans();
+
+  const handleYearlyToggle = (checked: boolean) => {
+    setIsYearly(checked);
+    onIsYearlyChange(checked);
+  };
+
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight="bold" textAlign="center">
+          Choose Your Plan
+        </Typography>
+        
+        <Box sx={{ 
+          bgcolor: 'primary.light', 
+          p: 1.5, 
+          borderRadius: 2,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <LocalOfferIcon />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isYearly}
+                onChange={(e) => handleYearlyToggle(e.target.checked)}
+              />
+            }
+            label={
+              <Typography fontWeight="medium">
+                {isYearly ? 'Annual (Save 16%)' : 'Monthly'}
+              </Typography>
+            }
+          />
+        </Box>
+
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 4,
+          flexDirection: { xs: 'column', md: 'row' },
+          width: '100%',
+          justifyContent: 'center'
+        }}>
+          {Object.entries(plans).map(([key, plan]) => (
+            <Card
+              key={key}
+              sx={{
+                flex: { xs: '1', md: '0 1 350px' },
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                transform: plan.highlight ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: 6
+                },
+                ...(selectedPlan === key && {
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                }),
+                ...(plan.highlight && {
+                  border: '2px solid',
+                  borderColor: 'secondary.main',
+                })
+              }}
+            >
+              {plan.highlight && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 20,
+                    transform: 'translateY(-50%)',
+                    bgcolor: 'secondary.main',
+                    color: 'white',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  POPULAR
+                </Box>
+              )}
+              <CardContent sx={{ p: 4, flexGrow: 1 }}>
+                <Typography variant="h5" component="div" fontWeight="bold" gutterBottom>
+                  {plan.name}
+                </Typography>
+                <Typography variant="h3" color="primary" fontWeight="bold" gutterBottom>
+                  ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <Typography variant="subtitle1" component="span" color="text.secondary">
+                    /{isYearly ? 'year' : 'month'}
+                  </Typography>
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <List disablePadding>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ py: 1 }} disableGutters>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <CheckIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={feature}
+                        primaryTypographyProps={{
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+              <CardActions sx={{ p: 4, pt: 0 }}>
+                <Button 
+                  fullWidth 
+                  size="large"
+                  variant={selectedPlan === key ? "contained" : "outlined"}
+                  onClick={() => onPlanSelect(key)}
+                  sx={{ 
+                    py: 1.5,
+                    ...(plan.highlight && {
+                      bgcolor: selectedPlan === key ? 'secondary.main' : 'transparent',
+                      borderColor: 'secondary.main',
+                      color: selectedPlan === key ? 'white' : 'secondary.main',
+                      '&:hover': {
+                        bgcolor: 'secondary.main',
+                        color: 'white'
+                      }
+                    })
+                  }}
+                >
+                  {selectedPlan === key ? 'Selected' : 'Select Plan'}
+                </Button>
+              </CardActions>
+            </Card>
+          ))}
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+const AddOns = ({ selectedPlan, isYearly, extraScans, setExtraScans }: { selectedPlan: string | null, isYearly: boolean, extraScans: number, setExtraScans: React.Dispatch<React.SetStateAction<number>> }) => {
+  const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+  const extraScanQuantity = getExtraScanQuantity();
+  const plans = getPlans();
+  const plan = selectedPlan ? plans[selectedPlan as keyof typeof plans] : null;
+
+  const getTotalScans = () => {
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  const calculateTotal = () => {
+    if (!selectedPlan || !plan) return 0;
+    return calculatePrice(selectedPlan, isYearly, extraScans);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Stack spacing={3}>
+        {/* Selected Plan Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            bgcolor: 'primary.light',
+            borderRadius: 1,
+            color: 'primary.contrastText'
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <StarIcon />
+            <Box>
+              <Typography variant="h6" gutterBottom fontWeight="500">
+                Selected Plan: {plan?.name}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+                <Typography>
+                  Base Price: ${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}
+                </Typography>
+                <Typography>
+                  Base Scans: {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+                </Typography>
+              </Stack>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Scan Usage Information */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Scan Usage Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Base Plan Scans
+              </Typography>
+              <Typography variant="body1">
+                {scanLimit === -1 ? 'Unlimited' : `${scanLimit} scans/month`}
+              </Typography>
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Extra Scans Added
+              </Typography>
+              <Typography variant="body1">
+                {extraScans * extraScanQuantity} additional scans/month
+              </Typography>
+            </Box>
+
+            <Divider />
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Total Available Scans
+              </Typography>
+              <Typography variant="h6" color="primary.main" fontWeight="500">
+                {getTotalScans()} scans/month
+              </Typography>
+            </Box>
+
+            {selectedPlan !== 'premium' && (
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'info.light', 
+                borderRadius: 1,
+                color: 'info.contrastText'
+              }}>
+                <Typography variant="body2">
+                  💡 Need more scans? You can add blocks of {extraScanQuantity} scans below or upgrade your plan for higher base limits.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+
+        {/* Extra Scans Section */}
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 1 }}>
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Add Extra Scans
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            bgcolor: 'grey.50',
+            p: 2,
+            borderRadius: 1
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => Math.max(0, prev - 1))}
+              disabled={extraScans === 0}
+            >
+              -
+            </Button>
+            <Typography sx={{ flex: 1 }}>
+              {extraScans} blocks of {extraScanQuantity} scans
+            </Typography>
+            <Typography color="primary.main" fontWeight="500">
+              +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setExtraScans(prev => prev + 1)}
+            >
+              +
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Each block adds {extraScanQuantity} scans to your monthly limit
+          </Typography>
+        </Paper>
+
+        {/* Total Summary */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3,
+            bgcolor: 'success.light',
+            borderRadius: 1
+          }}
+        >
+          <Typography variant="h6" gutterBottom fontWeight="500">
+            Total Summary
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography>Base Plan</Typography>
+              <Typography>${isYearly ? plan?.yearlyPrice : plan?.monthlyPrice}/{isYearly ? 'year' : 'month'}</Typography>
+            </Box>
+            {extraScans > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography>Extra Scans ({extraScans * extraScanQuantity} scans)</Typography>
+                <Typography>
+                  +${(extraScans * (isYearly ? 49.99 : 4.99)).toFixed(2)}/{isYearly ? 'year' : 'month'}
+                </Typography>
+              </Box>
+            )}
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6" fontWeight="500">Total</Typography>
+              <Typography variant="h6" fontWeight="500">
+                ${calculateTotal()}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Box>
+  );
+};
+
+
+const Payment = ({ totalAmount, handleCheckout }) => (
+
+  <Box sx={{ p: 3 }}>
+    <Typography variant="h6" gutterBottom>
+      Payment Details
+    </Typography>
+    <Typography variant="body1" gutterBottom>
+      Total Amount: ${totalAmount.toFixed(2)}
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      onClick={handleCheckout}
+    >
+      Checkout
+    </Button>
+  </Box>
+);
+
+function Home() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [extraScans, setExtraScans] = useState<number>(0);
+  const steps = ['Plans', 'Add-ons', 'Billing Information', 'Payment'];
+
+  const formik = useFormik({
+    initialValues: {
+      billingName: '',
+      phoneNumber: '',
+      country: '',
+      streetAddress: '',
+      city: '',
+      zipCode: '',
+      gstinEnabled: false,
+      gstin: '',
+    },
+    validationSchema: Yup.object({
+      billingName: Yup.string().required('Billing Name/Company Name is required'),
+      phoneNumber: Yup.string().required('Phone Number is required'),
+      country: Yup.string().required('Country is required'),
+      streetAddress: Yup.string().required('Street Address is required'),
+      city: Yup.string().required('City is required'),
+      zipCode: Yup.string().required('Zip Code is required'),
+      gstin: Yup.string().when('gstinEnabled', {
+        is: true,
+        then: Yup.string().required('GSTIN is required when GSTIN is enabled'),
+      }),
+    }),
+    onSubmit: (values) => {
+      console.log('Billing Information:', values);
+      handleNext();
+    },
+  });
+
+  const handleNext = () => {
+    if (activeStep === 2 && !formik.isValid) {
+      formik.handleSubmit();
+    } else {
+      setActiveStep((prevStep) => prevStep + 1);
+      if (activeStep === 2) {
+        // Create JSON object with all information
+        const jsonData = {
+          billingInformation: formik.values,
+          scanInformation: {
+            selectedPlan,
+            isYearly,
+            extraScans,
+            totalScans: getTotalScans(),
+          },
+          amountSummary: calculateTotalAmount(),
+        };
+        console.log('All Information:', jsonData);
+      }
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevStep) => prevStep - 1);
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedPlan) return 0;
+    const plans = getPlans();
+    const plan = plans[selectedPlan as keyof typeof plans];
+    const basePrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    const extraScanPrice = extraScans * (isYearly ? 49.99 : 4.99);
+    return basePrice + extraScanPrice;
+  };
+
+  const getTotalScans = () => {
+    const scanLimit = selectedPlan ? getScanLimit(selectedPlan) : 0;
+    const extraScanQuantity = getExtraScanQuantity();
+    if (scanLimit === -1) return "Unlimited";
+    return scanLimit + (extraScans * extraScanQuantity);
+  };
+
+  localStorage.setItem('emailId', 'aravind@example.com');
+  const currentUser = localStorage.getItem('emailId');
+console.log(currentUser); // Outputs: 'user@example.com'
+
+
+  const handleCheckout = async () => {
+    const stripe = await stripePromise;
+    if (!stripe) {
+      console.error('Stripe failed to initialize');
+      return;
+    }
+
+    // Create a checkout session on your server
+    const response = await fetch('http://localhost:3000/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentUser,
+        billingInformation: formik.values,
+        plan: selectedPlan,
+        isYearly,
+        extraScans,
+        totalScans: getTotalScans(),
+        totalAmount: calculateTotalAmount(),
+      }),
+    });
+    console.log(response,"reponse");
+    const session = await response.json();
+
+    // Redirect to Stripe Checkout
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error(result.error.message);
+    }
+  };
+
+  const handleIsYearlyChange = (yearly: boolean) => {
+    setIsYearly(yearly);
+  };
+
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 0:
+        return (
+          <Plans 
+            onPlanSelect={setSelectedPlan} 
+            selectedPlan={selectedPlan}
+            onIsYearlyChange={handleIsYearlyChange}
+          />
+        );
+      case 1:
+        return (
+          <AddOns 
+            selectedPlan={selectedPlan}
+            isYearly={isYearly}
+            extraScans={extraScans}
+            setExtraScans={setExtraScans}
+          />
+        );
+      case 2:
+        return (
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Billing Information
+            </Typography>
+            <form>
+              <TextField
+                fullWidth
+                margin="normal"
+                id="billingName"
+                name="billingName"
+                label="Billing Name/Company Name"
+                value={formik.values.billingName}
+                onChange={formik.handleChange}
+                error={formik.touched.billingName && Boolean(formik.errors.billingName)}
+                helperText={formik.touched.billingName && formik.errors.billingName}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="phoneNumber"
+                name="phoneNumber"
+                label="Phone Number"
+                value={formik.values.phoneNumber}
+                onChange={formik.handleChange}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="country"
+                name="country"
+                label="Country"
+                value={formik.values.country}
+                onChange={formik.handleChange}
+                error={formik.touched.country && Boolean(formik.errors.country)}
+                helperText={formik.touched.country && formik.errors.country}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="streetAddress"
+                name="streetAddress"
+                label="Street Address"
+                value={formik.values.streetAddress}
+                onChange={formik.handleChange}
+                error={formik.touched.streetAddress && Boolean(formik.errors.streetAddress)}
+                helperText={formik.touched.streetAddress && formik.errors.streetAddress}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="city"
+                name="city"
+                label="City"
+                value={formik.values.city}
+                onChange={formik.handleChange}
+                error={formik.touched.city && Boolean(formik.errors.city)}
+                helperText={formik.touched.city && formik.errors.city}
+              />
+              <TextField
+                fullWidth
+                margin="normal"
+                id="zipCode"
+                name="zipCode"
+                label="Zip Code"
+                value={formik.values.zipCode}
+                onChange={formik.handleChange}
+                error={formik.touched.zipCode && Boolean(formik.errors.zipCode)}
+                helperText={formik.touched.zipCode && formik.errors.zipCode}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    id="gstinEnabled"
+                    name="gstinEnabled"
+                    checked={formik.values.gstinEnabled}
+                    onChange={formik.handleChange}
+                  />
+                }
+                label="Enable GSTIN"
+              />
+              {formik.values.gstinEnabled && (
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="gstin"
+                  name="gstin"
+                  label="GSTIN"
+                  value={formik.values.gstin}
+                  onChange={formik.handleChange}
+                  error={formik.touched.gstin && Boolean(formik.errors.gstin)}
+                  helperText={formik.touched.gstin && formik.errors.gstin}
+                />
+              )}
+            </form>
+          </Box>
+        );
+      case 3:
+        return (
+          <Payment
+            totalAmount={calculateTotalAmount()}
+            handleCheckout={handleCheckout}
+          />
+        );
+      default:
+        return 'Unknown step';
+    }
+  };
+
+  const isNextDisabled = () => {
+    switch (activeStep) {
+      case 0:
+        return selectedPlan === null;
+      case 2:
+        return !formik.isValid;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <Container maxWidth="md">
+      <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        <Box sx={{ mt: 4 }}>
+          {activeStep === steps.length ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                All steps completed!
+              </Typography>
+              <Button
+                onClick={() => {
+                  setActiveStep(0);
+                  setSelectedPlan(null);
+                  setExtraScans(0);
+                  formik.resetForm();
+                }}
+                sx={{ mt: 2 }}
+                variant="contained"
+              >
+                Start Over
+              </Button>
+            </Box>
+          ) : (
+            <>
+              {getStepContent(activeStep)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+                <Button
+                  variant="contained"
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={isNextDisabled()}
+                >
+                  {activeStep === steps.length - 1 ? 'Finish' : 'Next'}
+                </Button>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Paper>
+    </Container>
+  );
+}
+
+export default Home;
+
+
+
+
+server
+
+
+
+const express = require("express");
+const Stripe = require("stripe");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const CheckoutSession = require('./models/CheckoutSession');
+const BillingInfo = require("./models/BillingInfo");
+const PlanDetails = require("./models/PlanDetails");
+const ActivityLogModel = require('./models/ActivityLog');
+const ActivityLog = require('./models/ActivityLog');
+const { v4: uuidv4 } = require('uuid');
+require("dotenv").config();
+
+const app = express();
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+app.use(express.json()); // Needed to parse JSON bodies
+
+app.use(cors());
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("✅ Connected to MongoDB");
+});
+
+mongoose.connection.on("error", (err) => {
+  console.error("❌ MongoDB connection error:", err);
+});
+
+
+app.use(express.json());
+
+
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    const {
+      currentUser,
+      billingInformation,
+      plan,
+      isYearly,
+      extraScans,
+      totalScans,
+      totalAmount,
+    } = req.body;
+
+    const amountInCents = Math.round(parseFloat(totalAmount) * 100);
+    const cbl_payment_id = `CBL-${uuidv4()}`;
+
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      // customer: existingStripeCustomerId,
+      payment_method_types: ['card','link'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${plan || 'Unknown'} Plan`,
+          },
+          unit_amount: amountInCents,
+        },
+        quantity: 1,
+      }],
+   
+      mode: 'payment',
+      billing_address_collection: 'auto',
+      billing_address_collection: 'required',
+
+      success_url: `http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: 'http://localhost:3000/cancel',
+
+      metadata: {
+        plan,
+        isYearly: String(isYearly),
+        extraScans: String(extraScans),
+        customerEmail: currentUser,
+        cbl_payment_id,
+      },
+    });
+
+    const sessionId = session.id;
+
+    // Log request to ActivityLog (upsert)
+    await ActivityLog.findOneAndUpdate(
+      { cbl_payment_id },
+      {
+        $set: {
+          datetime: new Date(),
+          request: JSON.stringify(req.body),
+          paymentgateway: 'stripe',
+        },
+        $setOnInsert: {
+          response: null,
+        }
+      },
+      { upsert: true, new: true }
+    );
+    
+    // Save Billing Info (upsert)
+    await BillingInfo.findOneAndUpdate(
+      { sessionId, currentUser },
+      {
+        ...billingInformation,
+        cbl_payment_id,
+      },
+      { upsert: true, new: true }
+    );
+
+    // Create or update plan
+await PlanDetails.findOneAndUpdate(
+  { currentUser }, // Find by user
+  {
+    $inc: { totalScans: totalScans }, // Increment totalScans
+    $set: {
+      plan,
+      isYearly,
+      extraScans,
+      totalAmount,
+      sessionId,
+      cbl_payment_id,
+    },
+  },
+  { upsert: true, new: true }
+);
+
+
+    res.json({ id: sessionId });
+
+  } catch (error) {
+    console.error('❌ Error:', error.message || error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
+app.get('/success', async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.query.session_id, {
+      expand: ['customer'],
+    });
+
+    if (session.payment_status === 'paid') {
+      const cbl_payment_id = session.metadata?.cbl_payment_id || 'UNKNOWN';
+
+      // Log response to ActivityLog (upsert)
+      await ActivityLog.findOneAndUpdate(
+        { cbl_payment_id },
+        {
+          $set: {
+            datetime: new Date(),
+            response: session,
+            paymentgateway: 'stripe',
+          },
+          $setOnInsert: {
+            request: null,
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      return res.redirect(`http://localhost:5173/subscription-success?session_id=${session.id}`);
+    } else {
+      return res.status(400).send('Payment not successful');
+    }
+
+  } catch (error) {
+    console.error("Stripe session fetch error:", error);
+    res.status(500).send('An error occurred during checkout.');
+  }
+});
+
+
+app.get('/payment-history', async (req, res) => {
+  try {
+    const { customerId, limit } = req.query;
+
+    const charges = await stripe.charges.list({
+      limit: limit ? parseInt(limit) : 100,
+      ...(customerId && { customer: customerId }), // optional customer filter
+    });
+
+    res.json(charges);
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    res.status(500).json({ error: 'Failed to retrieve payment history' });
+  }
+});
+
+
+app.get('/cancel', (req, res) => {
+  res.redirect('/')
+})
+// app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+//   const sig = req.headers['stripe-signature'];
+
+//   let event;
+
+//   try {
+//       event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET_KEY);
+//   } catch (err) {
+//       return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
+
+//   // Handle the event
+//   switch (event.type) {
+//     //Event when the subscription started
+//     case 'checkout.session.completed':
+//       console.log('New Subscription started!')
+//       console.log(event.data)
+//       break;
+
+//     // Event when the payment is successfull (every subscription interval)  
+//     case 'invoice.paid':
+//       console.log('Invoice paid')
+//       console.log(event.data)
+//       break;
+
+//     // Event when the payment failed due to card problems or insufficient funds (every subscription interval)  
+//     case 'invoice.payment_failed':  
+//       console.log('Invoice payment failed!')
+//       console.log(event.data)
+//       break;
+
+//     // Event when subscription is updated  
+//     case 'customer.subscription.updated':
+//       console.log('Subscription updated!')
+//       console.log(event.data)
+//       break
+
+//     default:
+//       console.log(`Unhandled event type ${event.type}`);
+//   }
+
+//   res.send();
+// });
+
+// app.post('/create-checkout-session', async (req, res) => {
+//   try {
+//     const {
+//       currentUser,
+//       billingInformation,
+//       plan,
+//       isYearly,
+//       extraScans,
+//       totalScans,
+//       totalAmount,
+//     } = req.body;
+
+//     console.log(req.body, "req.body");
+//     console.log(totalAmount,"totalAmount");
+//     const amountInCents = Math.round(Number(Number(totalAmount).toFixed(2)) * 100);
+//     console.log(amountInCents,"amountInCents");
+//     // Generate unique payment ID before using it anywhere
+//     const cbl_payment_id = `CBL-${uuidv4()}`;
+
+//     // Create Stripe session, now cbl_payment_id is defined and passed correctly
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ['card'],
+//       line_items: [{
+//         price_data: {
+//           currency: 'usd',
+//           product_data: { name: `${plan || 'Unknown'} Plan` },
+//           unit_amount: totalAmount,
+//         },
+//         quantity: 1,
+//       }],
+//       mode: 'payment',
+//       success_url: `http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}`,
+//       cancel_url: 'http://localhost:3000/cancel',
+//       metadata: {
+//         plan,
+//         isYearly: String(isYearly),
+//         extraScans: String(extraScans),
+//         customerEmail: currentUser,
+//         cbl_payment_id,   // Now this exists properly here
+//       },
+//     });
+
+//     const sessionId = session.id;
+
+//     await ActivityLog.findOneAndUpdate(
+//       { cbl_payment_id },
+//       {
+//         $set: {
+//           datetime: new Date(),
+//           request: JSON.stringify(req.body),
+//           paymentgateway: 'stripe',
+//         },
+//         $setOnInsert: { response: null },
+//       },
+//       { upsert: true, new: true }
+//     );
+
+
+//     const { _id, ...billingInfoData } = billingInformation;
+
+//     await BillingInfo.findOneAndUpdate(
+//       { sessionId, currentUser },
+//       {
+//         ...billingInfoData,   // no _id here
+//         sessionId,
+//         currentUser,
+//         cbl_payment_id,
+//       },
+//       { upsert: true, new: true }
+//     );
+    
+//     await PlanDetails.findOneAndUpdate(
+//       { currentUser },
+//       {
+//         $inc: { totalScans: totalScans },
+//         $set: {
+//           plan,
+//           isYearly,
+//           extraScans,
+//           totalAmount,
+//           sessionId,
+//           cbl_payment_id,
+//         },
+//       },
+//       { upsert: true, new: true }
+//     );
+
+//     res.json({ id: sessionId });
+//   } catch (error) {
+//     console.error('❌ Error:', error);
+//     res.status(500).json({ error: 'Internal Server Error' });
+//   }
+// });
+
+// ------------------- STRIPE SUCCESS CALLBACK -------------------
+
+// app.get('/success', async (req, res) => {
+//   try {
+//     const session = await stripe.checkout.sessions.retrieve(req.query.session_id, {
+//       expand: ['customer'],
+//     });
+
+//     if (session.payment_status === 'paid') {
+//       const cbl_payment_id = session.metadata?.cbl_payment_id || 'UNKNOWN';
+
+//       await ActivityLog.findOneAndUpdate(
+//         { cbl_payment_id },
+//         {
+//           $set: {
+//             datetime: new Date(),
+//             response: session,
+//             paymentgateway: 'stripe',
+//           },
+//           $setOnInsert: { request: null },
+//         },
+//         { upsert: true, new: true }
+//       );
+
+//       return res.redirect(`http://localhost:5173/subscription-success?session_id=${session.id}`);
+//     } else {
+//       return res.status(400).send('Payment not successful');
+//     }
+//   } catch (error) {
+//     console.error("Stripe session fetch error:", error);
+//     res.status(500).send('An error occurred during checkout.');
+//   }
+// });
+
+// ------------------- BILLING INFO CRUD -------------------
+
+app.get('/billing-info/:email', async (req, res) => {
+  console.log(req.params.email,"email");
+  try {
+    const billingInfo = await BillingInfo.findOne({ currentUser: req.params.email });
+    console.log(billingInfo,"billingInfo");
+    if (!billingInfo) {
+      return res.status(404).json({ message: 'Billing info not found' });
+    }
+    res.json(billingInfo);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+
+const PORT = 3000;
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+
